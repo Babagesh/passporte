@@ -4,6 +4,7 @@ struct ContentView: View {
   var purchases: PurchaseStore
   @State private var showsSubscription = false
   @State private var selection: WorkspaceDestination? = .overview
+  @State private var stampStore = StampBookStore()
 
   var body: some View {
     NavigationSplitView {
@@ -37,7 +38,7 @@ struct ContentView: View {
         openDocuments: { selection = .documents }
       )
     case .passports:
-      PassportsView(purchases: purchases)
+      PassportsView(store: stampStore, purchases: purchases)
     case .documents:
       let destination = WorkspaceDestination.documents
       ContentUnavailableView(

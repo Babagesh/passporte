@@ -3,9 +3,10 @@ import SwiftUI
 @available(iOS 27.1, *)
 struct TravelTrailView: View {
   @Bindable var purchases: PurchaseStore
+  var trip: TravelTrailTrip
   @Environment(\.dismiss) private var dismiss
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  @State private var selectedStop = 4
+  @State private var selectedStop = 0
   @State private var isPlaying = false
   @State private var hingeAngle: Double?
   @State private var isFolded = false
@@ -15,7 +16,7 @@ struct TravelTrailView: View {
     NavigationStack {
       Group {
         if purchases.hasTravelTrailAccess {
-          TravelTrailSpread(selectedStop: $selectedStop, isPlaying: $isPlaying,
+          TravelTrailSpread(trip: trip, selectedStop: $selectedStop, isPlaying: $isPlaying,
                             hingeAngle: hingeAngle, isFolded: isFolded)
         } else {
           ScrollView {
@@ -77,12 +78,14 @@ struct TravelTrailView: View {
       }
       .onChange(of: purchases.demoTrailPassUnlocked) { _, _ in isPlaying = false }
       .task {
-        if purchases.hasTravelTrailAccess && !reduceMotion { isPlaying = true }
+        selectedStop = max(trip.stops.count - 1, 0)
+        if purchases.hasTravelTrailAccess && !reduceMotion && trip.stops.count > 1 { isPlaying = true }
       }
       .task(id: isPlaying) {
         guard isPlaying else { return }
         selectedStop = 0
-        for index in 1..<TravelTrailTrip.japan.stops.count {
+        guard trip.stops.count > 1 else { return }
+        for index in 1..<trip.stops.count {
           do { try await Task.sleep(for: .seconds(1.4)) } catch { return }
           guard !Task.isCancelled, purchases.hasTravelTrailAccess else { return }
           withAnimation(reduceMotion ? nil : .smooth(duration: 0.8)) { selectedStop = index }
@@ -102,6 +105,7 @@ enum TrailStyle {
 
 @available(iOS 27.1, *)
 private struct TravelTrailSpread: View {
+  var trip: TravelTrailTrip
   @Binding var selectedStop: Int
   @Binding var isPlaying: Bool
   var hingeAngle: Double?
@@ -124,10 +128,10 @@ private struct TravelTrailSpread: View {
       if let division {
         let gap = division.frame
         ZStack(alignment: .topLeading) {
-          TrailMapPage(selectedStop: selectedStop, posture: tabletop ? "Tabletop" : "Book", hingeAngle: hingeAngle, isFolded: isFolded)
+          TrailMapPage(trip: trip, selectedStop: selectedStop, posture: tabletop ? "Tabletop" : "Book", hingeAngle: hingeAngle, isFolded: isFolded)
             .frame(width: tabletop ? geometry.size.width : max(0, gap.minX - division.margins.leading),
                    height: tabletop ? max(0, gap.minY - division.margins.top) : geometry.size.height)
-          TrailTimelinePage(selectedStop: $selectedStop, isPlaying: $isPlaying)
+          TrailTimelinePage(trip: trip, selectedStop: $selectedStop, isPlaying: $isPlaying)
             .frame(width: tabletop ? geometry.size.width : max(0, geometry.size.width - gap.maxX - division.margins.trailing),
                    height: tabletop ? max(0, geometry.size.height - gap.maxY - division.margins.bottom) : geometry.size.height)
             .offset(x: tabletop ? 0 : gap.maxX + division.margins.trailing,
@@ -136,16 +140,16 @@ private struct TravelTrailSpread: View {
         .background(.black.opacity(shadow))
       } else if geometry.size.width >= 600 {
         HStack(spacing: 2) {
-          TrailMapPage(selectedStop: selectedStop, posture: "Passport spread", hingeAngle: hingeAngle, isFolded: isFolded)
-          TrailTimelinePage(selectedStop: $selectedStop, isPlaying: $isPlaying)
+          TrailMapPage(trip: trip, selectedStop: selectedStop, posture: "Passport spread", hingeAngle: hingeAngle, isFolded: isFolded)
+          TrailTimelinePage(trip: trip, selectedStop: $selectedStop, isPlaying: $isPlaying)
         }
         .background(.black.opacity(shadow))
       } else {
         ScrollView {
           VStack(spacing: 12) {
-            TrailMapPage(selectedStop: selectedStop, posture: "Pocket view", hingeAngle: hingeAngle, isFolded: isFolded)
+            TrailMapPage(trip: trip, selectedStop: selectedStop, posture: "Pocket view", hingeAngle: hingeAngle, isFolded: isFolded)
               .frame(height: 380)
-            TrailTimelinePage(selectedStop: $selectedStop, isPlaying: $isPlaying)
+            TrailTimelinePage(trip: trip, selectedStop: $selectedStop, isPlaying: $isPlaying)
               .frame(minHeight: 680)
           }
           .frame(maxWidth: .infinity)

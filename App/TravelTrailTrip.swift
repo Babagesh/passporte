@@ -2,7 +2,9 @@ import Foundation
 import CoreLocation
 
 struct TravelTrailTrip {
-  static let japan = TravelTrailTrip()
+  /// The sample journey used to demonstrate the Pro feature before any trips are stamped.
+  static let japan = TravelTrailTrip(isSample: true)
+  var isSample = false
   var stops: [TrailStop] = [
     TrailStop(id: 0, city: "Tokyo", day: 1, detail: "Arrival · A first evening in Shinjuku", latitude: 35.6762, longitude: 139.6503),
     TrailStop(id: 1, city: "Kamakura", day: 2, detail: "Coastal air & the Great Buddha", latitude: 35.3192, longitude: 139.5467),

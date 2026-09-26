@@ -47,3 +47,7 @@ See [RevenueCat installation](https://www.revenuecat.com/docs/getting-started/in
 ## Contributing
 
 Create a branch for your changes, keep commits focused, and include a description of the change and any validation performed when opening a pull request.
+
+## OpenAI API key
+
+The local `.env` file is ignored by Git. Put `OPENAI_API_KEY` there only for a server-side service. The iOS app does not load `.env`; never bundle the key in the app or put it in Swift code. Mobile app keys can be extracted, so the app should send photo and trip context to a backend that calls OpenAI.
