@@ -20,6 +20,7 @@
           "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
           "GENERATE_INFOPLIST_FILE": "YES",
           "INFOPLIST_KEY_CFBundleDisplayName": "Passporte",
+          "INFOPLIST_KEY_NSCameraUsageDescription": "Passporte uses the camera to add travel photos to your visa stamps.",
           "INFOPLIST_KEY_UILaunchScreen_Generation": "YES",
           "TARGETED_DEVICE_FAMILY": "1",
           "SWIFT_VERSION": "5.0"

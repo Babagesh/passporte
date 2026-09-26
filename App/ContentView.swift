@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
   @State private var selection: WorkspaceDestination? = .overview
+  @State private var stampStore = StampBookStore()
 
   var body: some View {
     NavigationSplitView {
@@ -25,7 +26,9 @@ struct ContentView: View {
         openPassports: { selection = .passports },
         openDocuments: { selection = .documents }
       )
-    case .passports, .documents:
+    case .passports:
+      PassportsView(store: stampStore)
+    case .documents:
       let destination = selection ?? .overview
       ContentUnavailableView(
         destination.emptyTitle,
