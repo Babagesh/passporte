@@ -3,6 +3,7 @@ import PhotosUI
 import UIKit
 
 struct PassportsView: View {
+  var purchases: PurchaseStore
   @State private var isShowingPassport = false
 
   var body: some View {
@@ -44,13 +45,15 @@ struct PassportsView: View {
     .navigationTitle("Passports")
     .fullScreenCover(isPresented: $isShowingPassport) {
       NavigationStack {
-        PassportDetailView()
+        PassportDetailView(purchases: purchases)
       }
     }
   }
 }
 
 private struct PassportDetailView: View {
+  var purchases: PurchaseStore
+  @State private var showsTravelTrail = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
   @Environment(\.dismiss) private var dismiss
@@ -111,6 +114,31 @@ private struct PassportDetailView: View {
       }
     }
     .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: showsInterior)
+    .overlay(alignment: .topTrailing) {
+      if showsInterior {
+        Button {
+          showsTravelTrail = true
+        } label: {
+          Label("Travel Trail", systemImage: "map")
+            .labelStyle(.iconOnly)
+            .font(.title3)
+            .foregroundStyle(.primary)
+            .frame(width: 48, height: 48)
+            .background(.regularMaterial, in: Circle())
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens the Japan trip map and timeline.")
+        .padding(20)
+      }
+    }
+    .sheet(isPresented: $showsTravelTrail) {
+      if #available(iOS 27.1, *) {
+        TravelTrailView(purchases: purchases)
+          .presentationDetents([.large])
+          .presentationDragIndicator(.visible)
+      }
+    }
     .toolbarBackground(.hidden, for: .navigationBar)
     .toolbarColorScheme(showsInterior ? .light : .dark, for: .navigationBar)
     .toolbar {

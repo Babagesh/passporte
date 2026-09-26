@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ContentView: View {
+  var purchases: PurchaseStore
+  @State private var showsSubscription = false
   @State private var selection: WorkspaceDestination? = .overview
 
   var body: some View {
@@ -13,8 +15,17 @@ struct ContentView: View {
       .navigationTitle("Passporte")
     } detail: {
       detailView
+        .toolbar {
+          ToolbarItem(placement: .primaryAction) {
+            Button("Pro") { showsSubscription = true }
+              .accessibilityLabel("Pro: Travel Trail")
+          }
+        }
     }
     .navigationSplitViewStyle(.balanced)
+    .sheet(isPresented: $showsSubscription) {
+      TravelTrailIntroductionView()
+    }
   }
 
   @ViewBuilder
@@ -26,7 +37,7 @@ struct ContentView: View {
         openDocuments: { selection = .documents }
       )
     case .passports:
-      PassportsView()
+      PassportsView(purchases: purchases)
     case .documents:
       let destination = WorkspaceDestination.documents
       ContentUnavailableView(
