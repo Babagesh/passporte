@@ -1,5 +1,11 @@
 {
   "name": "Passporte",
+  "packages": {
+    "RevenueCat": {
+      "url": "https://github.com/RevenueCat/purchases-ios-spm.git",
+      "from": "5.39.0"
+    }
+  },
   "options": {
     "bundleIdPrefix": "app.bitrig.new",
     "deploymentTarget": {
@@ -10,6 +16,10 @@
     "Passporte": {
       "type": "application",
       "platform": "iOS",
+      "dependencies": [
+        { "package": "RevenueCat", "product": "RevenueCat" },
+        { "package": "RevenueCat", "product": "RevenueCatUI" }
+      ],
       "sources": [
         "App"
       ],

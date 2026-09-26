@@ -3,6 +3,7 @@ import UIKit
 
 struct PassportsView: View {
   var store: StampBookStore
+  var purchases: PurchaseStore
 
   @State private var passports: [Passport] = [.sample]
   @State private var presentedPassportID: Passport.ID?
@@ -80,7 +81,11 @@ struct PassportsView: View {
     .fullScreenCover(isPresented: isShowingPassport) {
       if let presentedIndex {
         NavigationStack {
-          PassportDetailView(passport: $passports[presentedIndex], store: store)
+          PassportDetailView(
+            passport: $passports[presentedIndex],
+            store: store,
+            purchases: purchases
+          )
         }
       }
     }
@@ -163,7 +168,9 @@ private struct NewPassportView: View {
 private struct PassportDetailView: View {
   @Binding var passport: Passport
   var store: StampBookStore
+  var purchases: PurchaseStore
 
+  @State private var showsTravelTrail = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
   @Environment(\.dismiss) private var dismiss
@@ -187,6 +194,13 @@ private struct PassportDetailView: View {
     }
 
     return store.stamps.first { $0.id == selectedStampID }
+  }
+
+  /// Every stamp in this passport, in the order it was pasted in.
+  private var trailStamps: [TravelStamp] {
+    passport.pages.flatMap(\.stampIDs).compactMap { stampID in
+      store.stamps.first { $0.id == stampID }
+    }
   }
 
   var body: some View {
@@ -243,6 +257,13 @@ private struct PassportDetailView: View {
         )
       }
     }
+    .sheet(isPresented: $showsTravelTrail) {
+      if #available(iOS 27.1, *) {
+        TravelTrailView(purchases: purchases, trip: TravelTrailTrip(stamps: trailStamps))
+          .presentationDetents([.large])
+          .presentationDragIndicator(.visible)
+      }
+    }
     .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: isShut)
     .toolbarBackground(.hidden, for: .navigationBar)
     .toolbarBackground(.hidden, for: .bottomBar)
@@ -257,6 +278,14 @@ private struct PassportDetailView: View {
       }
 
       if !isShut {
+        ToolbarItem(placement: .topBarTrailing) {
+          Button("Travel Trail", systemImage: "map") {
+            showsTravelTrail = true
+          }
+          .labelStyle(.iconOnly)
+          .accessibilityHint("Opens the Japan trip map and timeline.")
+        }
+
         ToolbarItemGroup(placement: .bottomBar) {
           Spacer()
 
