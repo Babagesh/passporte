@@ -65,7 +65,9 @@ struct TrailMapPage: View {
           }.foregroundStyle(.secondary)
         }
 
-        Text("Route drawn from the stamps in this passport")
+        Text(trip.isSample
+          ? "Sample journey · Route is illustrative"
+          : "Route drawn from the stamps in this passport")
           .font(.caption2).foregroundStyle(.secondary)
       } else {
         ContentUnavailableView(

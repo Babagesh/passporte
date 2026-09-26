@@ -259,7 +259,7 @@ private struct PassportDetailView: View {
     }
     .sheet(isPresented: $showsTravelTrail) {
       if #available(iOS 27.1, *) {
-        TravelTrailView(purchases: purchases, trip: TravelTrailTrip(stamps: trailStamps))
+        TravelTrailView(purchases: purchases, trip: .trail(for: trailStamps))
           .presentationDetents([.large])
           .presentationDragIndicator(.visible)
       }

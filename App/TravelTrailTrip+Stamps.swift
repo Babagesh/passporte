@@ -3,6 +3,11 @@ import Foundation
 import MapKit
 
 extension TravelTrailTrip {
+  /// The passport's own trail, or the sample journey so Pro still demos before any trips are stamped.
+  static func trail(for stamps: [TravelStamp]) -> TravelTrailTrip {
+    stamps.isEmpty ? .japan : TravelTrailTrip(stamps: stamps)
+  }
+
   /// Builds the trail from a passport's visa stamps, earliest arrival first.
   init(stamps: [TravelStamp]) {
     let ordered = stamps.sorted { $0.entryDate < $1.entryDate }

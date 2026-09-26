@@ -22,11 +22,13 @@ struct TrailTimelinePage: View {
           Text("02").font(.caption)
         }
         HStack(alignment: .firstTextBaseline) {
-          Text("Your travel chapter")
+          Text(trip.isSample ? "A sample chapter" : "Your travel chapter")
             .font(.title.weight(.semibold))
           Spacer()
           if !trip.stops.isEmpty {
-            Text("ACTIVE TRIP").font(.caption2.bold()).foregroundStyle(TrailStyle.ink)
+            Text(trip.isSample ? "SAMPLE TRIP" : "ACTIVE TRIP")
+              .font(.caption2.bold())
+              .foregroundStyle(TrailStyle.ink)
           }
         }
 
