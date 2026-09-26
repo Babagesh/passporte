@@ -25,8 +25,10 @@ struct ContentView: View {
         openPassports: { selection = .passports },
         openDocuments: { selection = .documents }
       )
-    case .passports, .documents:
-      let destination = selection ?? .overview
+    case .passports:
+      PassportsView()
+    case .documents:
+      let destination = WorkspaceDestination.documents
       ContentUnavailableView(
         destination.emptyTitle,
         systemImage: destination.symbol,
