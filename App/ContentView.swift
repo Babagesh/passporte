@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ContentView: View {
+  var purchases: PurchaseStore
+  @State private var showsSubscription = false
   @State private var selection: WorkspaceDestination? = .overview
 
   var body: some View {
@@ -13,8 +15,17 @@ struct ContentView: View {
       .navigationTitle("Passporte")
     } detail: {
       detailView
+        .toolbar {
+          ToolbarItem(placement: .primaryAction) {
+            Button("Pro") { showsSubscription = true }
+              .accessibilityLabel("Passporte Pro subscription")
+          }
+        }
     }
     .navigationSplitViewStyle(.balanced)
+    .sheet(isPresented: $showsSubscription) {
+      SubscriptionView(purchases: purchases)
+    }
   }
 
   @ViewBuilder
