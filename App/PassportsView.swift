@@ -1,9 +1,26 @@
 import SwiftUI
-import PhotosUI
 import UIKit
 
 struct PassportsView: View {
-  @State private var isShowingPassport = false
+  var store: StampBookStore
+
+  @State private var passports: [Passport] = [.sample]
+  @State private var presentedPassportID: Passport.ID?
+  @State private var isShowingNewPassport = false
+
+  private var presentedIndex: Int? {
+    passports.firstIndex { $0.id == presentedPassportID }
+  }
+
+  private var isShowingPassport: Binding<Bool> {
+    Binding {
+      presentedPassportID != nil
+    } set: { isPresented in
+      if !isPresented {
+        presentedPassportID = nil
+      }
+    }
+  }
 
   var body: some View {
     ScrollView {
@@ -11,126 +28,530 @@ struct PassportsView: View {
         columns: [GridItem(.adaptive(minimum: 160, maximum: 240), spacing: 20)],
         spacing: 24
       ) {
-        Button {
-          isShowingPassport = true
-        } label: {
-          VStack(alignment: .leading, spacing: 12) {
-            PassportArtwork(name: "USPassportCover") {
-              USPassportCover()
-            }
-              .aspectRatio(0.72, contentMode: .fit)
-
-            VStack(alignment: .leading, spacing: 3) {
-              Text("United States")
-                .font(.headline)
-                .foregroundStyle(.primary)
-
-              Text("Sample passport")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        ForEach(passports) { passport in
+          Button {
+            presentedPassportID = passport.id
+          } label: {
+            PassportCover(passport: passport)
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel("\(passport.title) passport")
+          .accessibilityHint("Opens the passport cover. On iPhone Duo's larger display, shows the inside pages.")
+          .contextMenu {
+            Button(role: .destructive) {
+              passports.removeAll { $0.id == passport.id }
+            } label: {
+              Label("Delete", systemImage: "trash")
             }
           }
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Sample United States passport")
-        .accessibilityHint("Opens the passport cover. On iPhone Duo's larger display, shows the inside pages.")
       }
       .frame(maxWidth: 720, alignment: .leading)
       .frame(maxWidth: .infinity, alignment: .topLeading)
       .padding(20)
+      .padding(.bottom, 72)
+    }
+    .overlay {
+      if passports.isEmpty {
+        ContentUnavailableView(
+          WorkspaceDestination.passports.emptyTitle,
+          systemImage: WorkspaceDestination.passports.symbol,
+          description: Text(WorkspaceDestination.passports.emptyMessage)
+        )
+      }
     }
     .navigationTitle("Passports")
-    .fullScreenCover(isPresented: $isShowingPassport) {
-      NavigationStack {
-        PassportDetailView()
+    .overlay(alignment: .bottomTrailing) {
+      Button {
+        isShowingNewPassport = true
+      } label: {
+        PassportCircleBadge(systemImage: "plus")
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Create passport")
+      .accessibilityHint("Adds a passport to your library.")
+      .padding(24)
+    }
+    .sheet(isPresented: $isShowingNewPassport) {
+      NewPassportView { passport in
+        passports.append(passport)
+      }
+    }
+    .fullScreenCover(isPresented: isShowingPassport) {
+      if let presentedIndex {
+        NavigationStack {
+          PassportDetailView(passport: $passports[presentedIndex], store: store)
+        }
+      }
+    }
+  }
+}
+
+private struct PassportCover: View {
+  var passport: Passport
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      PassportArtwork(name: "USPassportCover") {
+        USPassportCover()
+      }
+        .aspectRatio(0.72, contentMode: .fit)
+
+      VStack(alignment: .leading, spacing: 3) {
+        Text(passport.title)
+          .font(.headline)
+          .foregroundStyle(.primary)
+
+        Text(passport.detail)
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .contentShape(Rectangle())
+  }
+}
+
+private struct NewPassportView: View {
+  var create: (Passport) -> Void
+
+  @Environment(\.dismiss) private var dismiss
+  @State private var title = ""
+  @State private var detail = ""
+
+  private var trimmedTitle: String {
+    title.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  var body: some View {
+    NavigationStack {
+      Form {
+        Section {
+          TextField("Name", text: $title)
+          TextField("Description", text: $detail)
+        } footer: {
+          Text("New passports use the United States cover artwork.")
+        }
+      }
+      .navigationTitle("New Passport")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Cancel") {
+            dismiss()
+          }
+        }
+
+        ToolbarItem(placement: .confirmationAction) {
+          Button("Add") {
+            let trimmedDetail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            create(
+              Passport(
+                title: trimmedTitle,
+                detail: trimmedDetail.isEmpty ? "United States passport" : trimmedDetail
+              )
+            )
+            dismiss()
+          }
+          .disabled(trimmedTitle.isEmpty)
+        }
       }
     }
   }
 }
 
 private struct PassportDetailView: View {
+  @Binding var passport: Passport
+  var store: StampBookStore
+
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
   @Environment(\.dismiss) private var dismiss
-  @State private var selectedPagePhoto: PhotosPickerItem?
-  @State private var addedPages: [UIImage] = []
+  @State private var pageIndex = 0
+  @State private var stampBeingEdited: TravelStamp?
+  @State private var stampIDsBeforeEditing: Set<UUID> = []
+  @State private var selectedStampID: UUID?
+  /// Details sit on the leaf opposite the stamp, so the stamp stays visible.
+  @State private var detailsEdge: Edge = .trailing
+  @State private var isDetailsFullScreen = false
+  @State private var stampToEditAfterDismissal: TravelStamp?
 
-  private var showsInterior: Bool {
-    horizontalSizeClass == .regular
+  /// The passport stays closed while the Duo is folded, so only its cover shows.
+  private var isShut: Bool {
+    horizontalSizeClass != .regular
+  }
+
+  private var selectedStamp: TravelStamp? {
+    guard let selectedStampID else {
+      return nil
+    }
+
+    return store.stamps.first { $0.id == selectedStampID }
   }
 
   var body: some View {
     Group {
-      if showsInterior {
-        TabView {
-          PassportArtwork(name: "USPassportInterior", zoom: 1.06) {
-            PassportInteriorSpread(fillsScreen: true)
-          }
-
-          ForEach(Array(addedPages.enumerated()), id: \.offset) { page in
-            Image(uiImage: page.element)
-              .resizable()
-              .scaledToFill()
-              .frame(maxWidth: .infinity, maxHeight: .infinity)
-              .clipped()
-          }
-        }
-        .tabViewStyle(.page)
-        .ignoresSafeArea()
-        .overlay(alignment: .bottomTrailing) {
-          PhotosPicker(selection: $selectedPagePhoto, matching: .images) {
-            Image(systemName: "plus")
-              .font(.system(size: 22, weight: .semibold))
-              .foregroundStyle(.white)
-              .frame(width: 60, height: 60)
-              .background(PassportPalette.coverBlue, in: Circle())
-              .overlay {
-                Circle()
-                  .stroke(.white.opacity(0.22), lineWidth: 1)
-              }
-              .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 6)
-              .contentShape(Circle())
-          }
-          .buttonStyle(.plain)
-          .accessibilityLabel("Add passport page photo")
-          .accessibilityHint("Choose a page image from your photo library.")
-          .padding(24)
-        }
-        .background(PassportPalette.paperShadow.ignoresSafeArea())
-        .transition(.opacity)
-      } else {
-        PassportArtwork(name: "USPassportCover") {
-          USPassportCover(fillsScreen: true)
-        }
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
+      if isShut {
+        PassportCoverView()
           .ignoresSafeArea()
           .background(PassportPalette.coverNavy.ignoresSafeArea())
           .transition(.opacity)
+      } else {
+        PassportPageFlipper(pageCount: passport.pages.count, index: $pageIndex) { index in
+          PassportSpreadView(
+            page: passport.pages[index],
+            store: store,
+            onSelectStamp: select
+          )
+        }
+        .ignoresSafeArea()
+        .background(PassportPalette.paperShadow.ignoresSafeArea())
+        .overlay(alignment: detailsEdge == .leading ? .leading : .trailing) {
+          if let stamp = selectedStamp, !isDetailsFullScreen {
+            StampDetailsPanel(
+              stamp: stamp,
+              store: store,
+              onClose: { selectedStampID = nil },
+              onExpand: { isDetailsFullScreen = true },
+              onEdit: { edit(stamp) }
+            )
+            .frame(width: 380)
+            .frame(maxHeight: .infinity)
+            .transition(.move(edge: detailsEdge).combined(with: .opacity))
+          }
+        }
+        .animation(reduceMotion ? nil : .smooth, value: selectedStampID)
+        .transition(.opacity)
       }
     }
-    .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: showsInterior)
+    .sheet(item: $stampBeingEdited, onDismiss: adoptNewStamps) { stamp in
+      NavigationStack {
+        StampEditorView(stamp: stamp, store: store)
+      }
+    }
+    .fullScreenCover(isPresented: $isDetailsFullScreen, onDismiss: presentPendingEdit) {
+      if let stamp = selectedStamp {
+        StampDetailsPanel(
+          stamp: stamp,
+          store: store,
+          onClose: { isDetailsFullScreen = false },
+          onExpand: { },
+          onEdit: {
+            stampToEditAfterDismissal = stamp
+            isDetailsFullScreen = false
+          }
+        )
+      }
+    }
+    .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: isShut)
     .toolbarBackground(.hidden, for: .navigationBar)
-    .toolbarColorScheme(showsInterior ? .light : .dark, for: .navigationBar)
+    .toolbarBackground(.hidden, for: .bottomBar)
+    .toolbarColorScheme(isShut ? .dark : .light, for: .navigationBar)
+    .toolbarColorScheme(isShut ? .dark : .light, for: .bottomBar)
     .toolbar {
       ToolbarItem(placement: .cancellationAction) {
         Button("Close", systemImage: "xmark") {
           dismiss()
         }
+        .labelStyle(.iconOnly)
+      }
+
+      if !isShut {
+        ToolbarItemGroup(placement: .bottomBar) {
+          Spacer()
+
+          Button("Add stamp", systemImage: "plus") {
+            addStamp()
+          }
+          .labelStyle(.iconOnly)
+          .accessibilityHint("Stamps a trip onto the first page with room.")
+        }
       }
     }
-    .preferredColorScheme(showsInterior ? .light : .dark)
+    .preferredColorScheme(isShut ? .dark : .light)
     .navigationTitle("")
     .navigationBarTitleDisplayMode(.inline)
-    .onChange(of: selectedPagePhoto) { _, item in
-      guard let item else { return }
+  }
 
-      Task {
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data) else { return }
-        addedPages.append(image)
+  private func addStamp() {
+    stampIDsBeforeEditing = Set(store.stamps.map(\.id))
+    stampBeingEdited = TravelStamp()
+  }
+
+  private func select(_ stamp: TravelStamp, on leaf: Edge) {
+    selectedStampID = stamp.id
+    detailsEdge = leaf == .leading ? .trailing : .leading
+  }
+
+  private func edit(_ stamp: TravelStamp) {
+    stampIDsBeforeEditing = Set(store.stamps.map(\.id))
+    stampBeingEdited = stamp
+    selectedStampID = nil
+  }
+
+  private func presentPendingEdit() {
+    guard let stamp = stampToEditAfterDismissal else {
+      return
+    }
+
+    stampToEditAfterDismissal = nil
+    edit(stamp)
+  }
+
+  /// Stamps whatever the editor saved onto the first page with room, binding in a
+  /// fresh page only once every existing page is full.
+  private func adoptNewStamps() {
+    let newStampIDs = store.stamps.map(\.id).filter { !stampIDsBeforeEditing.contains($0) }
+    stampIDsBeforeEditing = []
+
+    guard !newStampIDs.isEmpty else {
+      return
+    }
+
+    var landingPage = pageIndex
+
+    for stampID in newStampIDs {
+      let page: Int
+
+      if let available = passport.firstPageWithRoom {
+        page = available
+      } else {
+        passport.pages.append(PassportPage())
+        page = passport.pages.count - 1
       }
+
+      passport.pages[page].stampIDs.append(stampID)
+      landingPage = page
+    }
+
+    withAnimation(reduceMotion ? nil : .smooth(duration: 0.35)) {
+      pageIndex = landingPage
+    }
+  }
+}
+
+private struct PassportCircleBadge: View {
+  var systemImage: String
+
+  var body: some View {
+    Image(systemName: systemImage)
+      .font(.system(size: 22, weight: .semibold))
+      .foregroundStyle(.white)
+      .frame(width: 60, height: 60)
+      .background(PassportPalette.coverBlue, in: Circle())
+      .overlay {
+        Circle()
+          .stroke(.white.opacity(0.22), lineWidth: 1)
+      }
+      .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 6)
+      .contentShape(Circle())
+  }
+}
+
+private struct PassportCoverView: View {
+  var body: some View {
+    PassportArtwork(name: "USPassportCover") {
+      USPassportCover(fillsScreen: true)
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .clipped()
+  }
+}
+
+private struct PassportSpreadView: View {
+  var page: PassportPage
+  var store: StampBookStore
+  var onSelectStamp: (TravelStamp, Edge) -> Void
+
+  private var stamps: [TravelStamp] {
+    page.stampIDs.compactMap { stampID in
+      store.stamps.first { $0.id == stampID }
+    }
+  }
+
+  var body: some View {
+    PassportArtwork(name: "USPassportInterior", zoom: 1.06) {
+      PassportInteriorSpread(fillsScreen: true)
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .overlay {
+      StampPageLayout(stamps: stamps, onSelectStamp: onSelectStamp)
+    }
+    .clipped()
+  }
+}
+
+/// Lays the page's stamps into a two-by-two grid, filling left to right.
+private struct StampPageLayout: View {
+  var stamps: [TravelStamp]
+  var onSelectStamp: (TravelStamp, Edge) -> Void
+
+  /// Hand-stamped pages are never square to the page.
+  private let tilts: [Double] = [-6, 5, -3, 7]
+
+  var body: some View {
+    VStack(spacing: 18) {
+      ForEach(0..<2, id: \.self) { row in
+        HStack(spacing: 18) {
+          ForEach(0..<2, id: \.self) { column in
+            let slot = row * 2 + column
+
+            if slot < stamps.count {
+              let stamp = stamps[slot]
+
+              Button {
+                onSelectStamp(stamp, column == 0 ? .leading : .trailing)
+              } label: {
+                VisaStampArtwork(stamp: stamp, tilt: tilts[slot % 4], height: 132)
+                  .contentShape(Rectangle())
+              }
+              .buttonStyle(.plain)
+              .accessibilityHint("Opens this visa stamp's travel notes and photos")
+              .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+              Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+          }
+        }
+      }
+    }
+    .padding(.horizontal, 28)
+    .padding(.vertical, 56)
+  }
+}
+
+/// Pages the passport like a book: dragging horizontally lifts the current page
+/// off the spine and turns it over to reveal the page underneath.
+private struct PassportPageFlipper<Page: View>: View {
+  var pageCount: Int
+  @Binding var index: Int
+  var page: (Int) -> Page
+
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  /// Turn in progress: positive turns forward to the next page, negative turns back.
+  @State private var turn: CGFloat = 0
+
+  private var currentIndex: Int {
+    clamped(index)
+  }
+
+  private var turningIndex: Int? {
+    if turn > 0 {
+      return currentIndex
+    }
+
+    if turn < 0, currentIndex > 0 {
+      return currentIndex - 1
+    }
+
+    return nil
+  }
+
+  private var underlyingIndex: Int {
+    turn > 0 ? clamped(currentIndex + 1) : currentIndex
+  }
+
+  private func clamped(_ index: Int) -> Int {
+    min(max(index, 0), max(pageCount - 1, 0))
+  }
+
+  /// Degrees of the turning page about the spine: 0 lies flat, -180 is fully turned.
+  private var turnAngle: Double {
+    turn > 0 ? -180 * Double(turn) : -180 * Double(1 + turn)
+  }
+
+  var body: some View {
+    GeometryReader { geometry in
+      let width = max(geometry.size.width, 1)
+
+      ZStack {
+        page(underlyingIndex)
+          .overlay {
+            // Shadow cast by the lifted page onto the one beneath it.
+            LinearGradient(
+              colors: [.black.opacity(0.35), .clear],
+              startPoint: .leading,
+              endPoint: .trailing
+            )
+            .opacity(turn == 0 ? 0 : 0.6)
+            .allowsHitTesting(false)
+          }
+
+        if let turningIndex {
+          page(turningIndex)
+            .overlay {
+              LinearGradient(
+                colors: [.black.opacity(0.5), .black.opacity(0.05)],
+                startPoint: .trailing,
+                endPoint: .leading
+              )
+              .opacity(min(abs(turnAngle) / 180, 1))
+              .allowsHitTesting(false)
+            }
+            .rotation3DEffect(
+              .degrees(turnAngle),
+              axis: (x: 0, y: 1, z: 0),
+              anchor: .leading,
+              perspective: 0.45
+            )
+        }
+      }
+      .frame(width: geometry.size.width, height: geometry.size.height)
+      .clipped()
+      .contentShape(Rectangle())
+      .gesture(pageTurn(width: width))
+    }
+    .accessibilityElement(children: .contain)
+  }
+
+  private func pageTurn(width: CGFloat) -> some Gesture {
+    DragGesture(minimumDistance: 8)
+      .onChanged { value in
+        turn = resistedTurn(for: -value.translation.width / width)
+      }
+      .onEnded { value in
+        let progress = -value.translation.width / width
+        let projected = -value.predictedEndTranslation.width / width
+        let isDecisive = abs(progress) > 0.3 || abs(projected) > 0.75
+
+        if isDecisive, progress > 0, canTurnForward {
+          complete(to: 1, offset: 1)
+        } else if isDecisive, progress < 0, currentIndex > 0 {
+          complete(to: -1, offset: -1)
+        } else {
+          withAnimation(.smooth(duration: 0.3)) {
+            turn = 0
+          }
+        }
+      }
+  }
+
+  private var canTurnForward: Bool {
+    currentIndex < pageCount - 1
+  }
+
+  /// Keeps the first and last pages from turning past the spine.
+  private func resistedTurn(for progress: CGFloat) -> CGFloat {
+    let isBlocked = (progress > 0 && !canTurnForward) || (progress < 0 && currentIndex == 0)
+    let limited = isBlocked ? progress * 0.12 : progress
+    return min(max(limited, -1), 1)
+  }
+
+  private func complete(to end: CGFloat, offset: Int) {
+    let destination = clamped(currentIndex + offset)
+
+    guard !reduceMotion else {
+      index = destination
+      turn = 0
+      return
+    }
+
+    withAnimation(.smooth(duration: 0.45), completionCriteria: .logicallyComplete) {
+      turn = end
+    } completion: {
+      index = destination
+      turn = 0
     }
   }
 }
