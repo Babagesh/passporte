@@ -18,13 +18,15 @@ struct ContentView: View {
         .toolbar {
           ToolbarItem(placement: .primaryAction) {
             Button("Pro") { showsSubscription = true }
-              .accessibilityLabel("Passporte Pro subscription")
+              .accessibilityLabel("Pro: Travel Trail")
           }
         }
     }
     .navigationSplitViewStyle(.balanced)
-    .sheet(isPresented: $showsSubscription) {
-      SubscriptionView(purchases: purchases)
+    .fullScreenCover(isPresented: $showsSubscription) {
+      if #available(iOS 27.1, *) {
+        TravelTrailView(purchases: purchases)
+      }
     }
   }
 

@@ -1,9 +1,17 @@
 import Observation
 import RevenueCat
+import Foundation
 
 @MainActor
 @Observable
 final class PurchaseStore {
+  // Demo override is intentionally independent of paid access, so both states
+  // can be demonstrated without changing a real customer's entitlement.
+  var demoTrailPassUnlocked = UserDefaults.standard.object(forKey: "demoTrailPassUnlocked") as? Bool ?? true {
+    didSet { UserDefaults.standard.set(demoTrailPassUnlocked, forKey: "demoTrailPassUnlocked") }
+  }
+  private(set) var hasRevenueCatTravelTrailPass = false
+  var hasTravelTrailAccess: Bool { demoTrailPassUnlocked }
   private(set) var isConfigured = false
   private(set) var hasProAccess = false
   private(set) var offering: Offering?
@@ -80,6 +88,7 @@ final class PurchaseStore {
   }
 
   func update(_ info: CustomerInfo) {
+    hasRevenueCatTravelTrailPass = info.entitlements.active["travel_trail_pass"] != nil
     hasProAccess = info.entitlements[PurchaseConfiguration.entitlementID]?.isActive == true
   }
 }
