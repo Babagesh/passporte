@@ -2,3 +2,8 @@
 .build/
 DerivedData/
 *.xcodeproj/
+
+# Local credentials; keep the example template tracked.
+.env
+.env.*
+!.env.example
