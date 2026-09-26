@@ -22,7 +22,7 @@ struct TravelTrailView: View {
             VStack(spacing: 24) {
               Image(systemName: "lock.fill").font(.largeTitle)
               Text("Your next chapter awaits.")
-                .font(.largeTitle.weight(.semibold)).fontDesign(.serif)
+                .font(.largeTitle.weight(.semibold))
               Text("Travel Trail Pass is locked in this demo. Unlock the demo pass to explore your Japan journey.")
                 .multilineTextAlignment(.center)
               Button("Unlock Demo Pass") { purchases.demoTrailPassUnlocked = true }
@@ -109,7 +109,16 @@ private struct TravelTrailSpread: View {
 
   var body: some View {
     GeometryReader { geometry in
-      let division = geometry.reservedRegions(kind: .division).first
+      // A sheet can be displaced entirely onto one side of the hinge. Only
+      // split at a division when both resulting pages have usable local space.
+      let division = geometry.reservedRegions(kind: .division).first { region in
+        if region.frame.width > region.frame.height {
+          return region.frame.minY - region.margins.top >= 180 &&
+            geometry.size.height - region.frame.maxY - region.margins.bottom >= 180
+        }
+        return region.frame.minX - region.margins.leading >= 240 &&
+          geometry.size.width - region.frame.maxX - region.margins.trailing >= 240
+      }
       let tabletop = division.map { $0.frame.width > $0.frame.height } ?? false
       let shadow = isFolded ? min(0.22, max(0.04, (180 - (hingeAngle ?? 180)) / 700)) : 0.025
       if let division {

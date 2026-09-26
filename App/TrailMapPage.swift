@@ -14,10 +14,10 @@ struct TrailMapPage: View {
       HStack {
         Text("JAPAN / 日本").font(.caption.weight(.bold)).tracking(3)
         Spacer()
-        Text("01").font(.caption.monospaced())
+        Text("01").font(.caption)
       }
       Text("A trail worth keeping.")
-        .font(.title.weight(.semibold)).fontDesign(.serif)
+        .font(.title.weight(.semibold))
       Map(initialPosition: .region(MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 35.3, longitude: 137.6),
         span: MKCoordinateSpan(latitudeDelta: 3.3, longitudeDelta: 6.0))), interactionModes: [.pan, .zoom]) {
@@ -45,7 +45,7 @@ struct TrailMapPage: View {
       HStack(alignment: .firstTextBaseline) {
         VStack(alignment: .leading, spacing: 4) {
           Text("DAY \(trip.stops[selectedStop].day)").font(.caption2.weight(.bold)).tracking(2)
-          Text(trip.stops[selectedStop].city).font(.title2).fontDesign(.serif)
+          Text(trip.stops[selectedStop].city).font(.title2)
         }
         Spacer()
         VStack(alignment: .trailing, spacing: 4) {

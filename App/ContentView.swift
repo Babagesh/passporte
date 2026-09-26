@@ -23,10 +23,8 @@ struct ContentView: View {
         }
     }
     .navigationSplitViewStyle(.balanced)
-    .fullScreenCover(isPresented: $showsSubscription) {
-      if #available(iOS 27.1, *) {
-        TravelTrailView(purchases: purchases)
-      }
+    .sheet(isPresented: $showsSubscription) {
+      TravelTrailIntroductionView()
     }
   }
 
@@ -39,7 +37,7 @@ struct ContentView: View {
         openDocuments: { selection = .documents }
       )
     case .passports:
-      PassportsView()
+      PassportsView(purchases: purchases)
     case .documents:
       let destination = WorkspaceDestination.documents
       ContentUnavailableView(

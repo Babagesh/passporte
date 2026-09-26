@@ -16,13 +16,13 @@ Open this repository in Bitrig to build and run the app with the iPhone Duo simu
 
 ## Subscriptions with RevenueCat
 
-The project includes the RevenueCat and RevenueCatUI Swift packages. **Pro** now opens the Travel Trail demo; it never presents a paywall or starts a purchase. The earlier subscription framework remains in `SubscriptionView.swift` for future use but is not linked from the demo.
+The project includes the RevenueCat and RevenueCatUI Swift packages. **Pro** opens an introduction to Travel Trail. Open the US passport to its inside pages and tap the top-right **map** button to open the interactive demo in a sheet. Neither action presents a paywall or starts a purchase. The earlier subscription framework remains in `SubscriptionView.swift` for future use but is not linked from the demo.
 
 ## Travel Trail demo
 
 Travel Trail presents a mock active trip to Japan: Tokyo → Kamakura → Tokyo → Kyoto → Osaka. The journal shows four distinct cities, approximately 620 km traveled, day 5 of 9, and Osaka as the latest stop. Select a timeline entry to highlight it on the map, or use Replay to trace the journey. Distances are mock totals; map segments are illustrative, not navigation directions.
 
-On the Duo inner display, the two pages share the available space. Active division regions place the map on the left and the timeline on the right in book posture, or the map above the controls in tabletop posture. iOS 27.1 `onHingeChange` drives the fold angle indicator and page shading. On the outer display, the same pages stack and scroll. Selection is retained through layout changes. Map tiles require a network connection; no location permission is needed.
+On the Duo inner display, the two pages share the available space. Active division regions place the map on the left and the timeline on the right in book posture, or the map above the controls in tabletop posture, when both regions have usable space. iOS 27.1 `onHingeChange` drives the fold angle indicator and page shading. In a narrow popup, including a sheet displaced to one side of the fold, the same pages stack and scroll. Selection is retained through layout changes. Map tiles require a network connection; no location permission is needed.
 
 The **Demo** toolbar action opens a persisted **Pass unlocked** toggle, enabled by default. This local override deliberately controls both locked and unlocked demo states, independently of real purchases. The SDK separately observes the `travel_trail_pass` entitlement in `customerInfo.entitlements.active` and displays its state in the demo settings. This mock identifier must be configured in RevenueCat before enabling live gating; no dashboard products or entitlements are created by this demo. Core US passport and visa information remains free, and the United States remains the only passport type.
 

@@ -11,18 +11,18 @@ struct TrailTimelinePage: View {
         HStack {
           Text("TRAVEL TRAIL PASS").font(.caption.weight(.bold)).tracking(2)
           Spacer()
-          Text("02").font(.caption.monospaced())
+          Text("02").font(.caption)
         }
         HStack(alignment: .firstTextBaseline) {
           Text("Your Japan chapter")
-            .font(.title.weight(.semibold)).fontDesign(.serif)
+            .font(.title.weight(.semibold))
           Spacer()
           Text("ACTIVE TRIP").font(.caption2.bold()).foregroundStyle(TrailStyle.ink)
         }
         TrailTripStats()
         VStack(alignment: .leading, spacing: 4) {
           Text("LATEST STOP").font(.caption2.bold()).tracking(2).foregroundStyle(.secondary)
-          Text("Osaka").font(.largeTitle.weight(.medium)).fontDesign(.serif)
+          Text("Osaka").font(.largeTitle.weight(.medium))
         }
         Divider()
         HStack {
